@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tarot Reader - 全那罗占卜</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --accent: #bb86fc;
+            --secondary: #03dac6;
+            --gold: #cfb53b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* 顶部导航 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: rgba(30, 30, 30, 0.8);
+            border-bottom: 1px solid #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
+        
+        .lang-switch {
+            cursor: pointer;
+            padding: 5px 15px;
+            border: 1px solid var(--accent);
+            border-radius: 20px;
+            transition: 0.3s;
+        }
+        .lang-switch:hover { background: var(--accent); color: #000; }
+
+        /* 主容器 */
+        main {
+            flex: 1;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        /* 表单样式 */
+        .form-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; color: var(--secondary); font-weight: bold; }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            background: #2c2c2c;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        button {
+            background: linear-gradient(45deg, var(--accent), #7c4dff);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        button:hover { transform: scale(1.05); }
+
+        /* 卡牌区域 */
+        .deck-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            perspective: 1000px;
+            margin-top: 20px;
+        }
+
+        .card-back {
+            width: 50px;
+            height: 85px;
+            background: repeating-linear-gradient(45deg, #2b1d0e, #2b1d0e 5px, #46331a 5px, #46331a 10px);
+            border: 1px solid #5a4626;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.3s, opacity 0.3s;
+        }
+        .card-back:hover { transform: translateY(-10px); border-color: var(--gold); }
+        .card-back.selected { opacity: 0; pointer-events: none; }
+
+        /* 结果展示 */
+        .result-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .result-card {
+            width: 150px;
+            animation: fadeIn 1s ease;
+        }
+        .result-card img { width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .position-title { color: var(--gold); margin-top: 10px; font-weight: bold; }
+
+        /* AI 文本区域 */
+        .ai-box {
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 10px;
+            border-left: 4px solid var(--accent);
+            text-align: left;
+            line-height: 1.6;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .ai-loading { color: var(--secondary); font-style: italic; animation: pulse 1.5s infinite; }
+
+        /* 底部 */
+        footer {
+            text-align: right;
+            padding: 15px;
+            font-size: 0.8rem;
+            color: #666;
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 100%;
+            pointer-events: none;
+        }
+        .author { pointer-events: auto; margin-right: 20px; }
+
+        /* 动画与辅助类 */
+        .hidden { display: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🔮 Mystic AI Tarot</h1>
+    <div class="lang-switch" onclick="toggleLanguage()">中文 / English</div>
+</header>
+
+<main>
+    <!-- 第一阶段：输入与选择 -->
+    <section id="phase-input">
+        <h2 id="txt-welcome">欢迎来到塔罗圣殿</h2>
+        <div class="form-group">
+            <label id="lbl-theme">主题 (Theme):</label>
+            <input type="text" id="input-theme" placeholder="例如：爱情、事业、学业...">
+        </div>
+        <div class="form-group">
+            <label id="lbl-question">你的问题 (Your Question):</label>
+            <textarea id="input-question" rows="3" placeholder="请在此输入你想占卜的具体问题..."></textarea>
+        </div>
+        <div class="form-group">
+            <label id="lbl-spread">牌阵选择 (Spread Type):</label>
+            <select id="select-spread">
+                <option value="time">三牌阵 - 过去、现在、未来</option>
+                <option value="triangle">圣三角牌阵 - 显示盲点</option>
+                <option value="core">直指核心牌阵 - 釐清问题</option>
+            </select>
+        </div>
+        <button onclick="processInput()" id="btn-start">提交给 AI 分析</button>
+    </section>
+
+    <!-- 中间过渡：AI计算 -->
+    <section id="phase-calc" class="hidden">
+        <h2 class="ai-loading" id="txt-calculating">AI 正在分析您的问题...</h2>
+        <p id="txt-calc-result"></p>
+    </section>
+
+    <!-- 第二阶段：抽牌 -->
+    <section id="phase-draw" class="hidden">
+        <h2 id="txt-draw-instr">请凭直觉抽取 3 张牌</h2>
+        <p id="draw-count">0 / 3</p>
+        <div class="deck-container" id="deck-grid"></div>
+    </section>
+
+    <!-- 第三阶段：结果与解读 -->
+    <section id="phase-result" class="hidden">
+        <h2 id="txt-revelation">牌面启示</h2>
+        <div class="result-grid" id="cards-display"></div>
+        
+        <div class="ai-box">
+            <h3 id="txt-ai-title">AI 深度解读报告</h3>
+            <div id="ai-content"></div>
+        </div>
+        <button onclick="location.reload()" style="margin-top:30px;" id="btn-restart">重新占卜</button>
+    </section>
+</main>
+
+<footer>
+    <div class="author">Author: Bryan Lye Wai Meng</div>
+</footer>
+
+<script>
+    // --- 核心数据：78张塔罗牌 (引用网络公开图源) ---
+    const CARD_BASE_URL = "https://sacred-texts.com/tarot/pkt/img/"; // 韦特塔罗牌图源
+    const cardsData = [];
+    
+    // 构建数据
+    const suits = [
+        {code:'sw', cn:'宝剑', en:'Swords'}, 
+        {code:'wa', cn:'权杖', en:'Wands'}, 
+        {code:'cu', cn:'圣杯', en:'Cups'}, 
+        {code:'pe', cn:'星币', en:'Pentacles'}
+    ];
+    const ranks = ['Ace','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Page','Knight','Queen','King'];
+    const majorsEn = ["The Fool","The Magician","The High Priestess","The Empress","The Emperor","The Hierophant","The Lovers","The Chariot","Strength","The Hermit","Wheel of Fortune","Justice","The Hanged Man","Death","Temperance","The Devil","The Tower","The Star","The Moon","The Sun","Judgement","The World"];
+    const majorsCn = ["愚人","魔术师","女祭司","皇后","皇帝","教皇","恋人","战车","力量","隐士","命运之轮","正义","倒吊人","死神","节制","恶魔","高塔","星星","月亮","太阳","审判","世界"];
+
+    // 生成 Major Arcana
+    for(let i=0; i<22; i++) {
+        let fileCode = (i < 10 ? 'ar0'+i : 'ar'+i); // sacred-texts format
+        cardsData.push({
+            id: `major_${i}`,
+            nameCn: majorsCn[i],
+            nameEn: majorsEn[i],
+            img: `${CARD_BASE_URL}${fileCode}.jpg`,
+            type: 'major',
+            meaningCn: "代表重大的人生课题、精神层面的影响或不可抗拒的命运力量。",
+            meaningEn: "Represents significant life lessons, spiritual influences, or karmic forces."
+        });
+    }
+    // 生成 Minor Arcana
+    suits.forEach(suit => {
+        ranks.forEach((rank, idx) => {
+            let num = idx + 1;
+            let fileCode = (num < 10 ? suit.code+'0'+num : suit.code+num);
+            // sacred-texts naming quirk: Page=11, Knight=12, Queen=13, King=14 in filenames usually but varies.
+            // Adjusting for sacred-texts specific mapping: s, w, c, p + number. 
+            // Checking sacred-texts: sw01...sw14 (King). 
+            // So pure numeric append works.
+            cardsData.push({
+                id: `${suit.code}_${num}`,
+                nameCn: `${suit.cn} ${rank}`, // 简单处理 rank 翻译，实际应用可更细致
+                nameEn: `${rank} of ${suit.en}`,
+                img: `${CARD_BASE_URL}${fileCode}.jpg`,
+                type: 'minor',
+                meaningCn: `涉及${suit.cn}层面的日常事务、情感、行动或物质状况。`,
+                meaningEn: `Relates to daily affairs, emotions, actions, or material aspects of ${suit.en}.`
+            });
+        });
+    });
+
+    // --- 语言包 ---
+    const i18n = {
+        zh: {
+            welcome: "欢迎来到塔罗圣殿",
+            theme: "主题 (Theme):",
+            question: "你的问题 (Your Question):",
+            spread: "牌阵选择:",
+            start: "提交给 AI 分析",
+            calculating: "AI 正在分析您的问题并确定牌阵结构...",
+            calcResult: "AI 建议：根据您的需求，需要抽取 3 张卡牌。",
+            drawInstr: "请凭直觉抽取 3 张牌",
+            revelation: "牌面启示",
+            aiTitle: "AI 深度解读报告",
+            restart: "重新占卜",
+            spreadOptions: {
+                time: "三牌阵 - 过去、现在、未来",
+                triangle: "圣三角牌阵 - 显示盲点",
+                core: "直指核心牌阵 - 釐清问题"
+            },
+            positions: {
+                time: ["过去 (起因)", "现在 (现状)", "未来 (趋势)"],
+                triangle: ["显示盲点 (潜意识)", "当前状态 (显意识)", "结果预测 (综合)"],
+                core: ["核心问题 (症结)", "阻碍/帮助 (影响)", "解决方案 (建议)"]
+            },
+            aiText: {
+                intro: "根据您关于「{theme}」的提问：「{question}」，我为您解读如下：",
+                posPrefix: "👉 **位置 {pos} ({posName})**：抽到了 **【{cardName}】**。",
+                meaning: "💡 **含义**：{meaning}",
+                advice: "⚠️ **提醒/注意**：这张牌在这里提示您...",
+                summary: "🔮 **综合建议**：纵观整个牌面，建议您保持冷静，跟随第一张牌的指引，同时注意调整心态。",
+                author: "解读生成：Mystic AI Engine"
+            }
+        },
+        en: {
+            welcome: "Welcome to the Tarot Sanctuary",
+            theme: "Theme:",
+            question: "Your Question:",
+            spread: "Select Spread:",
+            start: "Submit to AI",
+            calculating: "AI is analyzing your question and determining structure...",
+            calcResult: "AI Determination: You need to draw 3 cards.",
+            drawInstr: "Trust your intuition and pick 3 cards",
+            revelation: "The Revelation",
+            aiTitle: "AI Interpretation Report",
+            restart: "New Reading",
+            spreadOptions: {
+                time: "Three Card - Past, Present, Future",
+                triangle: "Holy Triangle - Blind Spot",
+                core: "Point to Core - Clarify Problem"
+            },
+            positions: {
+                time: ["Past (Cause)", "Present (Current)", "Future (Trend)"],
+                triangle: ["Blind Spot", "Current State", "Result"],
+                core: ["Core Problem", "Obstacle/Help", "Solution"]
+            },
+            aiText: {
+                intro: "Based on your theme '{theme}' and question '{question}', here is the reading:",
+                posPrefix: "👉 **Position {pos} ({posName})**: You drew **[{cardName}]**.",
+                meaning: "💡 **Meaning**: {meaning}",
+                advice: "⚠️ **Note/Warning**: This card suggests you should...",
+                summary: "🔮 **Overall Advice**: Looking at the spread, maintain balance and heed the guidance of the first card.",
+                author: "Generated by: Mystic AI Engine"
+            }
+        }
+    };
+
+    // --- 全局状态 ---
+    let currentLang = 'zh';
+    let userTheme = '';
+    let userQuestion = '';
+    let selectedSpread = 'time';
+    let selectedCards = [];
+    let deck = [];
+
+    // --- 逻辑控制 ---
+
+    function toggleLanguage() {
+        currentLang = currentLang === 'zh' ? 'en' : 'zh';
+        updateUI();
+    }
+
+    function updateUI() {
+        const t = i18n[currentLang];
+        document.getElementById('txt-welcome').innerText = t.welcome;
+        document.getElementById('lbl-theme').innerText = t.theme;
+        document.getElementById('lbl-question').innerText = t.question;
+        document.getElementById('lbl-spread').innerText = t.spread;
+        document.getElementById('btn-start').innerText = t.start;
+        document.getElementById('txt-calculating').innerText = t.calculating;
+        document.getElementById('txt-calc-result').innerText = t.calcResult;
+        document.getElementById('txt-draw-instr').innerText = t.drawInstr;
+        document.getElementById('txt-revelation').innerText = t.revelation;
+        document.getElementById('txt-ai-title').innerText = t.aiTitle;
+        document.getElementById('btn-restart').innerText = t.restart;
+
+        // 更新下拉菜单
+        const sel = document.getElementById('select-spread');
+        sel.options[0].text = t.spreadOptions.time;
+        sel.options[1].text = t.spreadOptions.triangle;
+        sel.options[2].text = t.spreadOptions.core;
+    }
+
+    function processInput() {
+        userTheme = document.getElementById('input-theme').value;
+        userQuestion = document.getElementById('input-question').value;
+        selectedSpread = document.getElementById('select-spread').value;
+
+        if(!userTheme || !userQuestion) {
+            alert(currentLang==='zh' ? "请输入完整的主题和问题" : "Please enter both theme and question.");
+            return;
+        }
+
+        // 切换到 AI 计算界面
+        document.getElementById('phase-input').classList.add('hidden');
+        document.getElementById('phase-calc').classList.remove('hidden');
+
+        // 模拟 AI 计算延迟
+        setTimeout(() => {
+            document.getElementById('txt-calculating').style.animation = 'none';
+            document.getElementById('txt-calc-result').style.opacity = 1;
+            
+            setTimeout(() => {
+                document.getElementById('phase-calc').classList.add('hidden');
+                document.getElementById('phase-draw').classList.remove('hidden');
+                initDeck();
+            }, 1500);
+        }, 1500);
+    }
+
+    function initDeck() {
+        const grid = document.getElementById('deck-grid');
+        grid.innerHTML = '';
+        // 洗牌
+        deck = [...cardsData].sort(() => Math.random() - 0.5);
+        
+        // 渲染78张牌背
+        deck.forEach((card, index) => {
+            const div = document.createElement('div');
+            div.className = 'card-back';
+            div.onclick = () => selectCard(div, card);
+            grid.appendChild(div);
+        });
+    }
+
+    function selectCard(element, cardData) {
+        if(selectedCards.length >= 3) return;
+        
+        element.classList.add('selected');
+        selectedCards.push(cardData);
+        
+        document.getElementById('draw-count').innerText = `${selectedCards.length} / 3`;
+
+        if(selectedCards.length === 3) {
+            setTimeout(showResult, 800);
+        }
+    }
+
+    function showResult() {
+        document.getElementById('phase-draw').classList.add('hidden');
+        document.getElementById('phase-result').classList.remove('hidden');
+
+        const container = document.getElementById('cards-display');
+        const t = i18n[currentLang];
+        const posNames = t.positions[selectedSpread];
+
+        // 渲染结果卡牌
+        selectedCards.forEach((card, i) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'result-card';
+            wrap.innerHTML = `
+                <img src="${card.img}" alt="${card.nameEn}">
+                <div class="position-title">${posNames[i]}</div>
+                <div>${currentLang==='zh'?card.nameCn:card.nameEn}</div>
+            `;
+            container.appendChild(wrap);
+        });
+
+        generateAIAnalysis(posNames);
+    }
+
+    function generateAIAnalysis(posNames) {
+        const t = i18n[currentLang].aiText;
+        let content = "";
+
+        // 1. 开场白
+        content += t.intro.replace('{theme}', userTheme).replace('{question}', userQuestion) + "\n\n";
+        content += "----------------------------------------\n\n";
+
+        // 2. 逐张解读
+        selectedCards.forEach((card, i) => {
+            let cardName = currentLang==='zh' ? card.nameCn : card.nameEn;
+            let meaning = currentLang==='zh' ? card.meaningCn : card.meaningEn;
+            
+            content += t.posPrefix.replace('{pos}', i+1).replace('{posName}', posNames[i]).replace('{cardName}', cardName) + "\n";
+            content += t.meaning.replace('{meaning}', meaning) + "\n";
+            
+            // 模拟动态建议
+            let specificAdvice = "";
+            if(card.type === 'major') {
+                specificAdvice = currentLang==='zh' ? "这是一张大阿卡纳牌，意味着此因素对您有深远的影响，不可忽视。" : "This is a Major Arcana card, indicating a profound influence.";
+            } else {
+                specificAdvice = currentLang==='zh' ? "请关注生活中微小的细节变化。" : "Pay attention to small details in daily life.";
+            }
+            content += t.advice + " " + specificAdvice + "\n\n";
+        });
+
+        // 3. 总结
+        content += "----------------------------------------\n";
+        content += t.summary + "\n\n";
+        content += `*${t.author}*`;
+
+        // 打字机效果
+        const aiBox = document.getElementById('ai-content');
+        aiBox.innerHTML = '';
+        let i = 0;
+        const speed = 20; 
+        
+        function typeWriter() {
+            if (i < content.length) {
+                aiBox.innerHTML += content.charAt(i) === '\n' ? '<br>' : content.charAt(i);
+                i++;
+                setTimeout(typeWriter, speed);
+            }
+        }
+        typeWriter();
+    }
+
+    // 初始化
+    updateUI();
+</script>
+
+</body>
+</html>
